@@ -48,7 +48,7 @@
         "streambuf": "cpp",
         "cinttypes": "cpp",
         "typeinfo": "cpp",
-        "*.frag": "cpp",
-        "*.vert": "cpp"
+        "set": "cpp",
+        "fstream": "cpp"
     }
 }
