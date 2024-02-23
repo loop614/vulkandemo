@@ -20,13 +20,8 @@ const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
 const int MAX_FRAMES_IN_FLIGHT = 2;
 
-const std::vector<const char*> validationLayers = {
-    "VK_LAYER_KHRONOS_validation"
-};
-
-const std::vector<const char*> deviceExtensions = {
-    VK_KHR_SWAPCHAIN_EXTENSION_NAME
-};
+const std::vector<const char*> validationLayers = {"VK_LAYER_KHRONOS_validation"};
+const std::vector<const char*> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 
 #ifdef NDEBUG
     const bool enableValidationLayers = false;
@@ -96,14 +91,19 @@ struct Vertex {
 };
 
 const std::vector<Vertex> vertices = {
-    {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-    {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
-    {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
-    {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}
+    {{-0.85f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+    {{-0.1f, -0.5f}, {0.0f, 1.0f, 0.0f}},
+    {{0.1f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+    {{0.85f, -0.5f}, {0.0f, 1.0f, 0.0f}},
+    {{-0.85f, 0.5f}, {1.0f, 1.0f, 1.0f}},
+    {{-0.1f, 0.5f}, {0.0f, 0.0f, 1.0f}},
+    {{0.1f, 0.5f}, {1.0f, 1.0f, 1.0f}},
+    {{0.85f, 0.5f}, {0.0f, 0.0f, 1.0f}}
 };
 
 const std::vector<uint16_t> indices = {
-    0, 1, 2, 2, 3, 0
+    0, 1, 5, 5, 4, 0,
+    2, 3, 7, 7, 6, 2
 };
 
 
@@ -476,7 +476,7 @@ private:
     }
 
     bool isDeviceSuitable(VkPhysicalDevice device) {
-        QueueFamilyIndices indices = this->findQueueFamilies(device);
+        QueueFamilyIndices queueIndices = this->findQueueFamilies(device);
         bool extensionsSupported = checkDeviceExtensionSupport(device);
         bool swapChainAdequate = false;
         if (extensionsSupported) {
@@ -484,7 +484,7 @@ private:
             swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
         }
 
-        return indices.isComplete() && extensionsSupported && swapChainAdequate;
+        return queueIndices.isComplete() && extensionsSupported && swapChainAdequate;
     }
 
     bool checkDeviceExtensionSupport(VkPhysicalDevice device) {
@@ -524,9 +524,9 @@ private:
     }
 
     void createLogicalDevice() {
-        QueueFamilyIndices indices = this->findQueueFamilies(this->physicalDevice);
+        QueueFamilyIndices queueIndices = this->findQueueFamilies(this->physicalDevice);
         std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-        std::set<uint32_t> uniqueQueueFamilies = {indices.graphicsFamily.value(), indices.presentFamily.value()};
+        std::set<uint32_t> uniqueQueueFamilies = {queueIndices.graphicsFamily.value(), queueIndices.presentFamily.value()};
         float queuePriority = 1.0f;
         for (uint32_t queueFamily : uniqueQueueFamilies) {
             VkDeviceQueueCreateInfo queueCreateInfo{};
@@ -548,8 +548,8 @@ private:
             throw std::runtime_error("failed to create logical device!");
         }
 
-        vkGetDeviceQueue(this->device, indices.graphicsFamily.value(), 0, &this->graphicsQueue);
-        vkGetDeviceQueue(this->device, indices.presentFamily.value(), 0, &this->presentQueue);
+        vkGetDeviceQueue(this->device, queueIndices.graphicsFamily.value(), 0, &this->graphicsQueue);
+        vkGetDeviceQueue(this->device, queueIndices.presentFamily.value(), 0, &this->presentQueue);
     }
 
     void populateVkDeviceCreateInfo(VkDeviceCreateInfo& createInfo) {
@@ -566,7 +566,7 @@ private:
     }
 
     QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device) {
-        QueueFamilyIndices indices;
+        QueueFamilyIndices queueIndices;
         uint32_t queueFamilyCount = 0;
         vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
 
@@ -575,22 +575,22 @@ private:
         int i = 0;
         for (const auto& queueFamily : queueFamilies) {
             if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-                indices.graphicsFamily = i;
+                queueIndices.graphicsFamily = i;
             }
             VkBool32 presentSupport = false;
             vkGetPhysicalDeviceSurfaceSupportKHR(device, i, this->surface, &presentSupport);
             if (presentSupport) {
-                indices.presentFamily = i;
+                queueIndices.presentFamily = i;
             }
 
-            if (indices.isComplete()) {
+            if (queueIndices.isComplete()) {
                 break;
             }
 
             i++;
         }
 
-        return indices;
+        return queueIndices;
     }
 
     void createSwapChain() {
@@ -614,10 +614,10 @@ private:
         createInfo.imageArrayLayers = 1;
         createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-        QueueFamilyIndices indices = this->findQueueFamilies(physicalDevice);
-        uint32_t queueFamilyIndices[] = {indices.graphicsFamily.value(), indices.presentFamily.value()};
+        QueueFamilyIndices queueIndices = this->findQueueFamilies(physicalDevice);
+        uint32_t queueFamilyIndices[] = {queueIndices.graphicsFamily.value(), queueIndices.presentFamily.value()};
 
-        if (indices.graphicsFamily != indices.presentFamily) {
+        if (queueIndices.graphicsFamily != queueIndices.presentFamily) {
             createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
             createInfo.queueFamilyIndexCount = 2;
             createInfo.pQueueFamilyIndices = queueFamilyIndices;
@@ -711,7 +711,7 @@ private:
 
         int width, height;
         glfwGetFramebufferSize(window, &width, &height);
-        VkExtent2D actualExtent = { static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
+        VkExtent2D actualExtent = { static_cast<uint32_t>(width), static_cast<uint32_t>(height) };
         actualExtent.width = std::clamp(actualExtent.width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
         actualExtent.height = std::clamp(actualExtent.height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
 
@@ -795,13 +795,13 @@ private:
         VkViewport viewport{};
         viewport.x = 0.0f;
         viewport.y = 0.0f;
-        viewport.width = (float) swapChainExtent.width;
-        viewport.height = (float) swapChainExtent.height;
+        viewport.width = (float) this->swapChainExtent.width;
+        viewport.height = (float) this->swapChainExtent.height;
         viewport.minDepth = 0.0f;
         viewport.maxDepth = 1.0f;
         VkRect2D scissor{};
         scissor.offset = {0, 0};
-        scissor.extent = swapChainExtent;
+        scissor.extent = this->swapChainExtent;
         VkPipelineViewportStateCreateInfo viewportState{};
         viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
         viewportState.viewportCount = 1;
@@ -967,10 +967,10 @@ private:
             bufferSize,
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-            vertexBuffer,
-            vertexBufferMemory
+            this->vertexBuffer,
+            this->vertexBufferMemory
         );
-        copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
+        copyBuffer(stagingBuffer, this->vertexBuffer, bufferSize);
         vkDestroyBuffer(this->device, stagingBuffer, nullptr);
         vkFreeMemory(this->device, stagingBufferMemory, nullptr);
     }
@@ -994,16 +994,16 @@ private:
         createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
 
         void* data;
-        vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
+        vkMapMemory(this->device, stagingBufferMemory, 0, bufferSize, 0, &data);
         memcpy(data, indices.data(), (size_t) bufferSize);
-        vkUnmapMemory(device, stagingBufferMemory);
+        vkUnmapMemory(this->device, stagingBufferMemory);
 
-        createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, indexBufferMemory);
+        createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, this->indexBuffer, this->indexBufferMemory);
 
-        copyBuffer(stagingBuffer, indexBuffer, bufferSize);
+        copyBuffer(stagingBuffer, this->indexBuffer, bufferSize);
 
-        vkDestroyBuffer(device, stagingBuffer, nullptr);
-        vkFreeMemory(device, stagingBufferMemory, nullptr);
+        vkDestroyBuffer(this->device, stagingBuffer, nullptr);
+        vkFreeMemory(this->device, stagingBufferMemory, nullptr);
     }
 
     void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) {
@@ -1087,7 +1087,8 @@ private:
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
             if (vkCreateSemaphore(this->device, &semaphoreInfo, nullptr, &this->imageAvailableSemaphores[i]) != VK_SUCCESS ||
                 vkCreateSemaphore(this->device, &semaphoreInfo, nullptr, &this->renderFinishedSemaphores[i]) != VK_SUCCESS ||
-                vkCreateFence(this->device, &fenceInfo, nullptr, &this->inFlightFences[i]) != VK_SUCCESS) {
+                vkCreateFence(this->device, &fenceInfo, nullptr, &this->inFlightFences[i]) != VK_SUCCESS
+            ) {
                 throw std::runtime_error("failed to create semaphores!");
             }
         }
@@ -1104,7 +1105,7 @@ private:
         renderPassInfo.renderPass = this->renderPass;
         renderPassInfo.framebuffer = swapChainFramebuffers[imageIndex];
         renderPassInfo.renderArea.offset = {0, 0};
-        renderPassInfo.renderArea.extent = swapChainExtent;
+        renderPassInfo.renderArea.extent = this->swapChainExtent;
 
         VkClearValue clearColor = {{{0.0f, 0.0f, 0.0f, 1.0f}}};
         renderPassInfo.clearValueCount = 1;
@@ -1115,14 +1116,14 @@ private:
             VkViewport viewport{};
             viewport.x = 0.0f;
             viewport.y = 0.0f;
-            viewport.width = (float) swapChainExtent.width;
-            viewport.height = (float) swapChainExtent.height;
+            viewport.width = (float) this->swapChainExtent.width;
+            viewport.height = (float) this->swapChainExtent.height;
             viewport.minDepth = 0.0f;
             viewport.maxDepth = 1.0f;
             vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
             VkRect2D scissor{};
             scissor.offset = {0, 0};
-            scissor.extent = swapChainExtent;
+            scissor.extent = this->swapChainExtent;
             vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
             VkBuffer vertexBuffers[] = {vertexBuffer};
             VkDeviceSize offsets[] = {0};
